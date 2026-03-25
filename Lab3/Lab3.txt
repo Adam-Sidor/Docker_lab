@@ -1,0 +1,60 @@
+Utworzenie certyfikatu:
+  adam@netpanel-87-246-220-20 Lab3 % mkdir -p certs
+  adam@netpanel-87-246-220-20 Lab3 % openssl req \
+  -newkey rsa:4096 -nodes -sha256 -keyout certs/domain.key \
+  -addext "subjectAltName = DNS:localhost" \            
+  -x509 -days 365 -out certs/domain.crt
+
+Utworzenie kontenera:
+  adam@netpanel-87-246-220-20 Lab3 % docker run -d \   
+  --restart=always \
+  --name registry \
+  -v "$(pwd)"/certs:/certs \
+  -e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
+  -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
+  -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
+  -p 443:443 \
+  registry:3
+  15c60bcdd5ddb8a4489a0c118b413bcdd7a365064078517a191c3d691eb06eb9
+
+Wykorzystywanie registry:
+  Tagowanie obrazu:
+    adam@netpanel-87-246-220-20 Lab3 % docker tag ubuntu localhost:443/lab3:test
+
+  Wysłanie obrazu do registry:
+    adam@netpanel-87-246-220-20 Lab3 % docker push localhost:443/lab3:test
+    The push refers to repository [localhost:443/lab3]
+    afc35493e481: Pushed 
+    test: digest: sha256:629c4b5c284efb524c752ff955af204fa2cc8f1bf33d5a36ec257db74921a896 size: 529
+
+  Sprawdzenie repo:
+    adam@netpanel-87-246-220-20 Lab3 % curl --cacert certs/domain.crt https://localhost:443/v2/_catalog 
+    {"repositories":["lab3"]}
+
+  Usunięcie obrazu i pobranie z registry:
+    adam@netpanel-87-246-220-20 Lab3 % docker rmi localhost:443/lab3:test
+    Untagged: localhost:443/lab3:test
+    Untagged: localhost:443/lab3@sha256:629c4b5c284efb524c752ff955af204fa2cc8f1bf33d5a36ec257db74921a896
+
+    adam@netpanel-87-246-220-20 Lab3 % docker images                     
+    REPOSITORY                        TAG         IMAGE ID       CREATED         SIZE
+    ubuntu                            latest      e3847ac055b4   3 weeks ago     101MB
+    registry                          3           2f5ec5015bad   7 weeks ago     56.8MB
+    oracle/database                   19.3.0-ee   4a24f68c483b   16 months ago   5.57GB
+    docker/disk-usage-extension       0.2.9       83bc5b217a10   2 years ago     2.82MB
+    docker/resource-usage-extension   1.0.4       de42e8c4f3fd   2 years ago     14.5MB
+
+    adam@netpanel-87-246-220-20 Lab3 % docker pull localhost:443/lab3:test
+    test: Pulling from lab3
+    Digest: sha256:629c4b5c284efb524c752ff955af204fa2cc8f1bf33d5a36ec257db74921a896
+    Status: Downloaded newer image for localhost:443/lab3:test
+    localhost:443/lab3:test
+
+    adam@netpanel-87-246-220-20 Lab3 % docker images
+    REPOSITORY                        TAG         IMAGE ID       CREATED         SIZE
+    ubuntu                            latest      e3847ac055b4   3 weeks ago     101MB
+    localhost:443/lab3                test        e3847ac055b4   3 weeks ago     101MB
+    registry                          3           2f5ec5015bad   7 weeks ago     56.8MB
+    oracle/database                   19.3.0-ee   4a24f68c483b   16 months ago   5.57GB
+    docker/disk-usage-extension       0.2.9       83bc5b217a10   2 years ago     2.82MB
+    docker/resource-usage-extension   1.0.4       de42e8c4f3fd   2 years ago     14.5MB
