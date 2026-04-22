@@ -1,0 +1,41 @@
+# ETAP 1: Budowanie
+FROM golang:1.22-alpine AS builder
+
+# Instalacja certyfikatów CA dla zapytań HTTPS do API pogodowego
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+
+# Pobieranie zależności
+COPY go.mod ./
+RUN go mod download || true
+
+# Kopiowanie kodu źródłowego i plików statycznych
+COPY . .
+
+# Kompilacja statycznej binarki:
+# CGO_ENABLED=0  -> wyłącza biblioteki dynamiczne C
+# GOOS=linux     -> wymusza architekturę systemu Linux
+# -ldflags="-s -w" -> usuwa tablice symboli i dane debugowania
+# -o weather-app -> definiuje stałą nazwę pliku wyjściowego
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o weather-app .
+
+# ETAP 2: Finalny obraz 
+FROM scratch
+
+# Dane zgodnie ze standardem OCI
+LABEL org.opencontainers.image.authors="Adam Sidor"
+
+# Kopiowanie certyfikatów SSL i skompilowanej aplikacji
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /app/weather-app /weather-app
+
+# Informacja o porcie
+EXPOSE 8080
+
+# Healthcheck wykorzystujący mechanizm flag wbudowany w aplikację
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/weather-app", "-health"]
+
+# Uruchomienie aplikacji
+ENTRYPOINT ["/weather-app"]

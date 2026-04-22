@@ -8,46 +8,17 @@
     <style>
         body {
             font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            padding-top: 50px;
-            background: #f0f2f5;
+            padding: 20px;
         }
 
-        .card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 350px;
-        }
-
-        select,
-        button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-        }
-
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        button:hover {
-            background: #0056b3;
+        .input-group {
+            margin-bottom: 10px;
         }
 
         #result {
             margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            background: #e9ecef;
+            border: 1px solid #ccc;
+            padding: 10px;
             display: none;
         }
     </style>
@@ -56,17 +27,23 @@
 <body>
 
     <div class="card">
-        <h2>Sprawdź pogodę</h2>
-        <label for="city">Wybierz miasto:</label>
-        <select id="city">
-            <option value="52.2297,21.0122">Warszawa, Polska</option>
-            <option value="50.0647,19.9450">Kraków, Polska</option>
-            <option value="51.1079,17.0385">Wrocław, Polska</option>
-            <option value="51.2465,22.5684">Lublin, Polska</option>
-            <option value="52.5200,13.4050">Berlin, Niemcy</option>
-            <option value="48.8566,2.3522">Paryż, Francja</option>
-        </select>
-        <button onclick="getWeather()">Pobierz pogodę</button>
+        <h2>Pogoda</h2>
+
+        <div class="input-group">
+            <label>Kraj:</label>
+            <select id="country" onchange="updateCities()">
+                <option value="Polska">Polska</option>
+                <option value="Niemcy">Niemcy</option>
+                <option value="Francja">Francja</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Miasto:</label>
+            <select id="city"></select>
+        </div>
+
+        <button onclick="getWeather()">Pobierz</button>
 
         <div id="result">
             <strong id="res-city"></strong><br>
@@ -76,25 +53,73 @@
     </div>
 
     <script>
-        // Pobieranie danych pogodowych z Open-Meteo
+        // Obiekt przechowujący dane o miastach (nazwy i współrzędne) pogrupowane według krajów
+        const cityData = {
+            "Polska": [
+                { name: "Warszawa", coords: "52.2297,21.0122" },
+                { name: "Kraków", coords: "50.0647,19.9450" },
+                { name: "Wrocław", coords: "51.1079,17.0385" },
+                { name: "Lublin", coords: "51.2465,22.5684" }
+            ],
+            "Niemcy": [
+                { name: "Berlin", coords: "52.5200,13.4050" },
+                { name: "Hamburg", coords: "53.5511,9.9937" },
+                { name: "Monachium", coords: "48.1351,11.5820" }
+            ],
+            "Francja": [
+                { name: "Paryż", coords: "48.8566,2.3522" },
+                { name: "Marsylia", coords: "43.2965,5.3698" },
+                { name: "Lyon", coords: "45.7640,4.8357" }
+            ]
+        };
+
+        // Funkcja aktualizująca listę miast w zależności od wybranego kraju
+        function updateCities() {
+            // Pobranie wybranego kraju z dropdowna
+            const country = document.getElementById('country').value;
+            const citySelect = document.getElementById('city');
+
+            // Wyczyszczenie aktualnej listy miast
+            citySelect.innerHTML = "";
+
+            // Dynamiczne dodawanie opcji miast dla wybranego kraju
+            cityData[country].forEach(city => {
+                const option = document.createElement('option');
+                option.value = city.coords; // Wartością są współrzędne
+                option.textContent = city.name;
+                citySelect.appendChild(option);
+            });
+        }
+
+        // Wywołanie funkcji przy załadowaniu strony, aby wypełnić listę dla domyślnego kraju
+        updateCities();
+
+        // Asynchroniczna funkcja pobierająca pogodę z API
         async function getWeather() {
             const citySelect = document.getElementById('city');
+            if (!citySelect.value) return;
+
+            // Rozdzielenie współrzędnych na szerokość i długość geograficzną
             const coords = citySelect.value.split(',');
             const cityName = citySelect.options[citySelect.selectedIndex].text;
+            const countryName = document.getElementById('country').value;
 
+            // Budowanie URL zapytania do API
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords[0]}&longitude=${coords[1]}&current_weather=true`;
 
             try {
+                // Wykonanie zapytania HTTP
                 const response = await fetch(url);
                 const data = await response.json();
                 const weather = data.current_weather;
 
-                // Aktualizacja UI o otrzymane dane
-                document.getElementById('res-city').innerText = cityName;
+                // Wyświetlenie otrzymanych danych w sekcji wyników
+                document.getElementById('res-city').innerText = `${cityName}, ${countryName}`;
                 document.getElementById('res-temp').innerText = weather.temperature;
                 document.getElementById('res-wind').innerText = weather.windspeed;
                 document.getElementById('result').style.display = 'block';
             } catch (error) {
+                // Obsługa błędu połączenia lub parsowania danych
                 alert('Błąd podczas pobierania pogody.');
             }
         }
