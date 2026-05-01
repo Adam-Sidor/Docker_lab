@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# ETAP 1: Budowanie
+FROM golang:1.26-alpine AS builder
+
+# Instalacja narzędzi do pobierania kodu przez SSH i konfiguracja znanych hostów
+RUN apk add --no-cache git openssh-client
+RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+WORKDIR /app
+
+# Pobieranie kodu z repozytorium GitHub przy użyciu funkcjonalności mount=ssh
+RUN --mount=type=ssh git clone git@github.com:Adam-Sidor/Docker_lab.git .
+
+WORKDIR /app/Zadanie1
+
+# Pobieranie zależności i kompilacja aplikacji
+RUN go mod download || true
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o weather-app .
+
+# ETAP 2: Finalny obraz 
+FROM scratch
+
+# Dane zgodnie ze standardem OCI
+LABEL org.opencontainers.image.authors="Adam Sidor"
+
+# Kopiowanie certyfikatów SSL i skompilowanej aplikacji z etapu builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /app/Zadanie1/weather-app /weather-app
+
+# Informacja o porcie
+EXPOSE 8080
+
+# Healthcheck wykorzystujący mechanizm flag wbudowany w aplikację
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/weather-app", "-health"]
+
+# Uruchomienie aplikacji
+ENTRYPOINT ["/weather-app"]
