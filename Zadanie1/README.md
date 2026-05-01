@@ -210,7 +210,7 @@ Frontend aplikacji (znajdujący się w katalogu `templates/`).
 
 ```dockerfile
 # ETAP 1: Budowanie
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Instalacja certyfikatów CA dla zapytań HTTPS do API pogodowego
 RUN apk add --no-cache ca-certificates
@@ -267,7 +267,7 @@ docker run -d --rm -p 8080:8080 zadanie1
 ```
 
 ### c. Sposób uzyskania informacji z logów
-Aby wyświetlić logi wygenerowane przez aplikację (np. datę uruchomienia, autora, port):
+Aby wyświetlić logi wygenerowane przez aplikację:
 ```bash
 docker logs (ID_kontenera)
 ```
