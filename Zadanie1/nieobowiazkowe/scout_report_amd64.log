@@ -1,0 +1,20 @@
+
+
+## Overview
+
+                   │                Analyzed Image                
+───────────────────┼──────────────────────────────────────────────
+ Target            │  adamsidor/zadanie1:nieobowiazkowe           
+   digest          │  e244713cccf6                                
+   platform        │ linux/amd64                                  
+   provenance      │ https://github.com/Adam-Sidor/Docker_lab.git 
+                   │  https://github.com/Adam-Sidor/Docker_lab/blob/ea10e19c406f60438de92e3523691fcf48f145a9    
+   vulnerabilities │    0C     0H     0M     0L                   
+   size            │ 3.8 MB                                       
+   packages        │ 2                                            
+
+
+## Packages and Vulnerabilities
+
+  No vulnerable packages detected
+
