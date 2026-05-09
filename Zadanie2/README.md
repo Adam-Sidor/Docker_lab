@@ -99,6 +99,12 @@ jobs:
 
 ## 3. Strategia tagowania - Uzasadnienie Techniczne
 
+### Wyzwalacz Pipeline'u (Push Tags)
+W konfiguracji workflow zdecydowano się na wyzwalanie akcji na podstawie wypchnięcia określonych tagów (`push: tags: [ 'zadanie2-v*' ]`).
+
+**Uzasadnienie:**
+Ponieważ repozytorium jest współdzielone dla wszystkich laboratoriów z tego przedmiotu, konieczne było odizolowanie uruchamiania pipeline'ów dla poszczególnych zadań. Konfiguracja tagów `zadanie2-v*` gwarantuje, że proces budowania dla Zadania 2 uruchomi się tylko i wyłącznie wtedy, gdy zmiany dotyczą tego konkretnego zadania. Zapobiega to niepotrzebnemu uruchamianiu akcji podczas commitowania i pushowania zmian do innych laboratoriów.
+
 ### Tagowanie obrazów aplikacyjnych
 W rozwiązaniu przyjęto nowoczesną strategię wielopoziomowego tagowania, co zapewnia elastyczność i bezpieczeństwo:
 - **Tag SHA (`sha-<skrót>`)**: Zapewnia **identyfikowalność (traceability)**. Pozwala na precyzyjne powiązanie obrazu z konkretnym commitem w Git. Jest to kluczowe dla audytów bezpieczeństwa i debugowania, eliminując niepewność co do zawartości binarnej obrazu.
