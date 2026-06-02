@@ -1,0 +1,55 @@
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx_server
+    ports:
+      - "4001:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./html:/var/www/html:ro
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - php
+
+  php:
+    image: php:8.2-fpm
+    container_name: php_app
+    volumes:
+      - ./html:/var/www/html
+    networks:
+      - backend
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: test_db
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - backend
+
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    container_name: phpmyadmin_ui
+    ports:
+      - "6001:80"
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: root_password
+    networks:
+      - backend
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:
+
+networks:
+  frontend:
+  backend:
