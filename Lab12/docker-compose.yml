@@ -14,7 +14,7 @@ services:
       - php
 
   php:
-    image: php:8.2-fpm
+    image: chialab/php:8.5-fpm
     container_name: php_app
     volumes:
       - ./html:/var/www/html
@@ -43,6 +43,7 @@ services:
       PMA_HOST: mysql
       MYSQL_ROOT_PASSWORD: root_password
     networks:
+      - frontend
       - backend
     depends_on:
       - mysql

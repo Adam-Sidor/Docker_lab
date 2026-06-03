@@ -21,7 +21,7 @@ services:
       - php
 
   php:
-    image: php:8.2-fpm
+    image: chialab/php:8.5-fpm
     container_name: php_app
     volumes:
       - ./html:/var/www/html
@@ -50,6 +50,7 @@ services:
       PMA_HOST: mysql
       MYSQL_ROOT_PASSWORD: root_password
     networks:
+      - frontend
       - backend
     depends_on:
       - mysql
@@ -68,10 +69,10 @@ networks:
 
 W architekturze zdefiniowano dwie izolowane sieci: `frontend` oraz `backend`. 
 
-* **`phpmyadmin`** został celowo przyłączony **tylko i wyłącznie do sieci `backend`**.
+* **`phpmyadmin`** został przyłączony **zarówno do sieci `frontend`, jak i `backend`**.
 * **Uzasadnienie:**
-  * Kontener `phpmyadmin` musi komunikować się bezpośrednio z bazą danych `mysql_db` w celu jej administracji, dlatego wymagane jest, aby znajdował się w tej samej sieci wewnętrznej (`backend`).
-  * Interfejs graficzny phpMyAdmin jest wystawiany na zewnątrz za pomocą bezpośredniego mapowania portu hosta (`6001:80`). Oznacza to, że użytkownik łączy się z nim bezpośrednio z systemu hosta, a ruch nie przechodzi przez serwer `nginx` (który jako jedyny spaja sieć `frontend` z `backend`). Przyłączenie phpMyAdmin do sieci `frontend` byłoby nadmiarowe i niezgodne z zasadą minimalnych uprawnień sieciowych.
+  * Kontener `phpmyadmin` musi komunikować się bezpośrednio z bazą danych `mysql_db` w celu jej administracji, dlatego znajduje się w sieci wewnętrznej (`backend`).
+  * Przyłączenie do sieci `frontend` służy zachowaniu separacji i izolacji ruchu. Dzięki temu baza danych `mysql` pozostaje całkowicie odizolowana w sieci wewnętrznej (`backend`) i nie ma bezpośredniego kontaktu z siecią zewnętrzną (`frontend`), w której wystawiany jest interfejs phpMyAdmin na mapowanym porcie `6001:80`.
 
 ---
 
@@ -79,33 +80,28 @@ W architekturze zdefiniowano dwie izolowane sieci: `frontend` oraz `backend`.
 
 ### Krok 1: Uruchomienie całego stacka za pomocą Docker Compose
 
-Poniżej log z pierwszego pobrania obrazów oraz uruchomienia wszystkich kontenerów:
+Poniżej log z uruchomienia wszystkich kontenerów:
 
 ```text
 adam@Adams-MacBook-Pro Lab12 % docker compose up -d
-[+] up 61/61
- ✔ Image php:8.2-fpm       Pulled                                                                                                                                                                                                                                      364.6s
- ✔ Image nginx:1.25-alpine Pulled                                                                                                                                                                                                                                      102.0s
- ✔ Image mysql:8.0         Pulled                                                                                                                                                                                                                                      361.7s
- ✔ Image phpmyadmin:5.2    Pulled                                                                                                                                                                                                                                      193.6s
- ✔ Network lab12_frontend  Created                                                                                                                                                                                                                                       0.0s
- ✔ Network lab12_backend   Created                                                                                                                                                                                                                                       0.0s
- ✔ Volume lab12_mysql_data Created                                                                                                                                                                                                                                       0.0s
- ✔ Container mysql_db      Started                                                                                                                                                                                                                                       0.4s
- ✔ Container php_app       Started                                                                                                                                                                                                                                       0.4s
- ✔ Container nginx_server  Started                                                                                                                                                                                                                                       0.3s
- ✔ Container phpmyadmin_ui Started                                                                                                                                                                                                                                       0.3s
+[+] up 6/6
+ ✔ Network lab12_frontend  Created                                                                                                                            0.0s
+ ✔ Network lab12_backend   Created                                                                                                                            0.0s
+ ✔ Container mysql_db      Started                                                                                                                            0.2s
+ ✔ Container php_app       Started                                                                                                                            0.1s
+ ✔ Container phpmyadmin_ui Started                                                                                                                            0.2s
+ ✔ Container nginx_server  Started                                                                                                                            0.2s
 ```
 
 ### Krok 2: Sprawdzenie stanu działających usług
 
 ```text
 adam@Adams-MacBook-Pro Lab12 % docker compose ps
-NAME            IMAGE               COMMAND                  SERVICE      CREATED         STATUS         PORTS
-mysql_db        mysql:8.0           "docker-entrypoint.s…"   mysql        3 minutes ago   Up 3 minutes   3306/tcp, 33060/tcp
-nginx_server    nginx:1.25-alpine   "/docker-entrypoint.…"   nginx        3 minutes ago   Up 3 minutes   0.0.0.0:4001->80/tcp, [::]:4001->80/tcp
-php_app         php:8.2-fpm         "docker-php-entrypoi…"   php          3 minutes ago   Up 3 minutes   9000/tcp
-phpmyadmin_ui   phpmyadmin:5.2      "/docker-entrypoint.…"   phpmyadmin   3 minutes ago   Up 3 minutes   0.0.0.0:6001->80/tcp, [::]:6001->80/tcp
+NAME            IMAGE                 COMMAND                  SERVICE      CREATED              STATUS              PORTS
+mysql_db        mysql:8.0             "docker-entrypoint.s…"   mysql        About a minute ago   Up About a minute   3306/tcp, 33060/tcp
+nginx_server    nginx:1.25-alpine     "/docker-entrypoint.…"   nginx        About a minute ago   Up About a minute   0.0.0.0:4001->80/tcp, [::]:4001->80/tcp
+php_app         chialab/php:8.5-fpm   "docker-php-entrypoi…"   php          About a minute ago   Up About a minute   9000/tcp
+phpmyadmin_ui   phpmyadmin:5.2        "/docker-entrypoint.…"   phpmyadmin   About a minute ago   Up About a minute   0.0.0.0:6001->80/tcp, [::]:6001->80/tcp
 ```
 
 ### Krok 3: Inspekcja przydziału sieciowego kontenerów
@@ -115,43 +111,50 @@ Weryfikacja podłączenia kontenerów do sieci `frontend` oraz `backend`:
 ```text
 adam@Adams-MacBook-Pro Lab12 % docker inspect lab12_frontend | jq '.[].Containers'
 {
-  "9c0c151a4a309144d7a898fc9cef97eff882a600cf3992cf6f562a9bbbb79bd5": {
-    "Name": "nginx_server",
-    "EndpointID": "e8209c74f12082af7cc51bc16927b9e40342ddef663a0b004021b5139d966bc0",
-    "MacAddress": "d2:be:c6:5b:9d:31",
+  "19453ecfa583c968113eb578b47d103a96442374485dfde7760900660becde23": {
+    "Name": "phpmyadmin_ui",
+    "EndpointID": "5d2766d7717a33f349ea32e31908f5b178b576f29072a99af2e12977f3fb2772",
+    "MacAddress": "6e:60:45:bd:58:4d",
     "IPv4Address": "172.19.0.2/16",
+    "IPv6Address": ""
+  },
+  "77b6ec37090b0e7e7801d3e641b756629f97c849aa97dd5a05c10539885cb2d7": {
+    "Name": "nginx_server",
+    "EndpointID": "4e2a8743b954533747813369277cfe040f35a8957bdb3e5f1f0bfb25d2065d0b",
+    "MacAddress": "ee:ff:57:d4:ee:73",
+    "IPv4Address": "172.19.0.3/16",
     "IPv6Address": ""
   }
 }
 
 adam@Adams-MacBook-Pro Lab12 % docker inspect lab12_backend | jq '.[].Containers'
 {
-  "223ec2c3e570d03ef061307b58cfcdf00e88d256df40f4a8825fdacc31b8fa21": {
-    "Name": "php_app",
-    "EndpointID": "a02cceba48b4c55c454a9e2c4d94d3fb6386ea43a866cdab17a1a6c16c30a90f",
-    "MacAddress": "7e:58:0e:9b:08:08",
-    "IPv4Address": "172.20.0.2/16",
+  "19453ecfa583c968113eb578b47d103a96442374485dfde7760900660becde23": {
+    "Name": "phpmyadmin_ui",
+    "EndpointID": "b5e17021873ecbd781e76ad464e4eebfdd061a5b9d8acc59ce7cd85dd10b411f",
+    "MacAddress": "be:7e:8c:66:c9:a4",
+    "IPv4Address": "172.20.0.4/16",
     "IPv6Address": ""
   },
-  "5b6e1c90b61510bf217468540f2beadf8dc345841e632b4e49419220bedbee09": {
-    "Name": "mysql_db",
-    "EndpointID": "7f9f5bce77473d30c60b49195948dfab4cb937cf5035ae9c25f36bed7155b6ec",
-    "MacAddress": "fa:db:2b:9e:8c:38",
-    "IPv4Address": "172.20.0.3/16",
-    "IPv6Address": ""
-  },
-  "9c0c151a4a309144d7a898fc9cef97eff882a600cf3992cf6f562a9bbbb79bd5": {
+  "77b6ec37090b0e7e7801d3e641b756629f97c849aa97dd5a05c10539885cb2d7": {
     "Name": "nginx_server",
-    "EndpointID": "a9f09aff220c140e7ebd7428de90fe8421269fec5cbeb9e1d0a6fa5485d4387c",
-    "MacAddress": "92:c0:c7:b8:16:6c",
+    "EndpointID": "1813d7c0c7b4aea7ca630f6922221828cdbca0c17586dd93156959553c6cb7d6",
+    "MacAddress": "c2:5b:6f:7b:6b:de",
     "IPv4Address": "172.20.0.5/16",
     "IPv6Address": ""
   },
-  "d640aa85b76cf9e2bbd0ab000445640077bb33b435f94eff481f091d3c32ad2c": {
-    "Name": "phpmyadmin_ui",
-    "EndpointID": "d0e588ea8950b8fc7ee487c4758b23a0685039031714db1a0242c751b50e5047",
-    "MacAddress": "f6:df:1c:36:af:2b",
-    "IPv4Address": "172.20.0.4/16",
+  "7ca970b17d43790a9d11b6569b09f198b7605a5d6eff1470a6ee53c68ca571e1": {
+    "Name": "php_app",
+    "EndpointID": "26683d2710b066298aae84a7e7d9393368e2e4af504bd148d795ff6b2e1de3e2",
+    "MacAddress": "5e:8d:98:86:29:59",
+    "IPv4Address": "172.20.0.2/16",
+    "IPv6Address": ""
+  },
+  "f029ceee64f97f96d62633ac667cf2a4828a5cc6e818a0d51ee21d3af6332a67": {
+    "Name": "mysql_db",
+    "EndpointID": "a2d9b0fc29685a63ea7426cc0f4d1065d75e2f697bd81a8a792e4149037fc30c",
+    "MacAddress": "4e:d5:d6:7a:ec:98",
+    "IPv4Address": "172.20.0.3/16",
     "IPv6Address": ""
   }
 }
